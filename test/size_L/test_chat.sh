@@ -4,29 +4,41 @@ readonly dir_root="$(cd ${wk_dir_script}/../..; pwd)"
 cd "${dir_root}" || exit 1
 
 
+# ----------------------------------------------------------------------
 # const
+# ----------------------------------------------------------------------
 readonly base_url="https://deepwiki.com"
 readonly base_dir_actual="test/size_L/actual"
 readonly base_dir_expect="test/size_L/expect"
 
 
+# ----------------------------------------------------------------------
 # given
+# ----------------------------------------------------------------------
 target="search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d"
 
 url="${base_url}/${target}"
 dir_output="${base_dir_actual}/${target}"
 
 # clear
-rm -fr test/size_L/actual/search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d/
+rm -fr "${dir_output}"
 
 
+# ----------------------------------------------------------------------
 # when
+# ----------------------------------------------------------------------
 export PYTHONPATH=.
-python src/interface/cli.py \
-  https://deepwiki.com/search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d \
-  test/size_L/actual/search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d/readme.md
+python src/interface/cli.py chat \
+  "${url}" \
+  "${dir_output}/readme.md"
 
+
+# ----------------------------------------------------------------------
 # then
+# ----------------------------------------------------------------------
+# ------------------------------
+# readme.md
+# ------------------------------
 diff -u \
   ${base_dir_actual}/${target}/readme.md \
   ${base_dir_expect}/${target}/readme.md
@@ -36,14 +48,14 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# FIXME: SVGだけど、実行ごとにidや位置が異なるから完全一致は確認できない
-# diff -u \
-#   ${base_dir_actual}/${target}/images \
-#   ${base_dir_expect}/${target}/images
+# ------------------------------
+# images
+# ------------------------------
 normalize_svg() {
   # IDや一時的な値を削除し、数値を丸めるなど
   sed -e 's/ \#mermaid-.*{//' \
       -e 's/#mermaid-.*_class-//g' \
+      -e 's/#mermaid-.*_flowchart-//g' \
       -e 's/id="[^"]*"//g' \
       -e 's/transform="[^"]*"//g' \
       -e 's/d="[^"]*"//g' \
@@ -51,7 +63,6 @@ normalize_svg() {
       "$1"
 }
 
-# SVGファイルを探す
 for svg_file in ${base_dir_actual}/${target}/images/*.svg; do
   base_name=$(basename "$svg_file")
   expect_svg="${base_dir_expect}/${target}/images/${base_name}"
@@ -70,4 +81,3 @@ for svg_file in ${base_dir_actual}/${target}/images/*.svg; do
     exit 1
   fi
 done
-

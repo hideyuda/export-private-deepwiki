@@ -5,8 +5,10 @@
 HTML adapter for parsing HTML content using BeautifulSoup.
 """
 
-from typing import List, Optional
+import re
+from typing import List, Dict, Optional
 from bs4 import BeautifulSoup, Tag
+from urllib.parse import urljoin
 
 
 class HtmlAdapter:
@@ -216,3 +218,139 @@ class HtmlAdapter:
         for pre_tag in answer_area_soup.find_all("pre"):
             if not pre_tag.get_text(strip=True):
                 pre_tag.decompose()
+
+    # ----- Wiki関連のメソッド -----
+
+    def extract_wiki_navigation(self, html_content: str) -> List[Dict[str, str]]:
+        """
+        Wikiページのナビゲーションメニューからすべてのページリンクを抽出する。
+
+        Args:
+            html_content: Wikiページ全体のHTML
+
+        Returns:
+            List[Dict[str, str]]: [{"title": "ページタイトル", "url": "ページURL"}, ...]
+        """
+        soup = self.parse_html(html_content)
+        navigation_links = []
+
+        # DeepWikiの特定のナビゲーション構造にマッチするセレクタを使用
+        # XPath: //*[@id="codebase-wiki-repo-page"]/div[2]/div/div/div[1]/div/ul
+        nav_ul = soup.select_one(
+            "#codebase-wiki-repo-page > div:nth-child(2) > div > div > div:nth-child(1) > div > ul"
+        )
+
+        if nav_ul:
+            # ナビゲーションリンクを取得
+            for li in nav_ul.find_all("li"):
+                link = li.find("a")
+                if link:
+                    href = link.get("href")
+                    title = link.get_text(strip=True)
+
+                    # リンクが有効な場合のみ処理
+                    if href and title:
+                        # 相対URLを絶対URLに変換
+                        if not href.startswith("http"):
+                            href = urljoin("https://deepwiki.com", href)
+
+                        navigation_links.append({"title": title, "url": href})
+
+            # ナビゲーションリンクが見つかった場合、情報をログに出力
+            if navigation_links:
+                print(f"Found {len(navigation_links)} navigation links")
+        else:
+            print(
+                "Navigation container not found. Check if the page structure has changed."
+            )
+
+        return navigation_links
+
+    def extract_wiki_content(self, html_content: str) -> str:
+        """
+        Wikiページの主要コンテンツを抽出する。
+
+        Args:
+            html_content: Wikiページ全体のHTML
+
+        Returns:
+            str: コンテンツ部分のHTML
+        """
+        soup = self.parse_html(html_content)
+
+        # DeepWikiのWikiコンテンツ要素のセレクタ
+        # 注: 実際のHTMLを解析して適切なセレクタに調整する必要がある
+        content_area = soup.select_one(".wiki-content, .main-content, article, main")
+
+        if content_area:
+            # 不要な要素を削除（例: 編集ボタンなど）
+            for button in content_area.select("button, .edit-button, .action-button"):
+                button.decompose()
+
+            return str(content_area)
+
+        # コンテンツエリアが見つからない場合、body全体を返す
+        return str(soup.body) if soup.body else ""
+
+    def extract_wiki_mermaid_diagrams(self, html_content: str) -> List[dict]:
+        """
+        Wikiページ内のMermaid図を抽出する。
+
+        Args:
+            html_content: Wikiページ全体のHTML
+
+        Returns:
+            List[dict]: 抽出されたMermaid図情報のリスト
+        """
+        soup = self.parse_html(html_content)
+        diagrams = []
+
+        # コンテンツエリアを特定 (DeepWikiの構造に合わせる)
+        content_area = soup.select_one("#codebase-wiki-repo-page")
+        if not content_area:
+            content_area = soup.body
+
+        if not content_area:
+            return diagrams
+
+        print("Searching for Mermaid diagrams in Wiki content...")
+
+        # DeepWikiのMermaidダイアグラム構造に合わせたセレクタ
+        # XPath: //*[@id="codebase-wiki-repo-page"]/div[2]/div/div/div[2]/div[2]/div/div/div/div/pre[1]
+        diagram_selector = 'pre:has(div[type="button"][aria-haspopup="dialog"] > div > svg[id^="mermaid-"])'
+
+        # すべてのpreタグを探す (デバッグ出力)
+        all_pre_tags = content_area.find_all("pre")
+        print(f"Found {len(all_pre_tags)} pre tags in content")
+
+        # Mermaid図を探索
+        diagram_candidates = content_area.select(diagram_selector)
+        print(f"Found {len(diagram_candidates)} potential Mermaid diagrams")
+
+        for i, pre_tag_mermaid in enumerate(diagram_candidates):
+            # SVGタグを抽出
+            svg_bs_tag_original = pre_tag_mermaid.select_one(
+                'div[type="button"][aria-haspopup="dialog"] > div > svg[id^="mermaid-"]'
+            )
+
+            if svg_bs_tag_original:
+                svg_id = svg_bs_tag_original.get("id", f"unknown-{i}")
+                print(f"Processing Mermaid diagram: {svg_id}")
+
+                fresh_svg_soup = BeautifulSoup(str(svg_bs_tag_original), "xml")
+                svg_tag_for_diagram = fresh_svg_soup.find("svg")
+
+                if svg_tag_for_diagram:
+                    diagrams.append(
+                        {
+                            "svg_tag": svg_tag_for_diagram,
+                            "pre_tag": pre_tag_mermaid,
+                            "index": i,
+                        }
+                    )
+                    print(f"Successfully extracted SVG for diagram {i}")
+                else:
+                    print(f"Warning: Failed to re-parse SVG for diagram {i}. Skipping.")
+
+        print(f"Total Mermaid diagrams successfully extracted: {len(diagrams)}")
+        return diagrams

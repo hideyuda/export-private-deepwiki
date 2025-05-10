@@ -11,6 +11,7 @@ import re
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from bs4 import Tag
+from urllib.parse import urlparse
 
 from src.domain.constants import (
     VISIBLE_TEXT_COLOR,
@@ -88,6 +89,37 @@ class MermaidDiagram:
             if text_element.has_attr("style"):  # Remove conflicting inline styles
                 del text_element["style"]
 
+        # シーケンス図のparticipant（actor）のテキスト位置を修正
+        is_sequence = (
+            svg_tag.has_attr("aria-roledescription")
+            and svg_tag["aria-roledescription"] == "sequence"
+        )
+
+        if is_sequence:
+            # クラス属性に"actor"を含む要素を探す（複数のクラスを持つ場合も対応）
+            actor_texts = svg_tag.find_all(
+                lambda tag: tag.name == "text"
+                and tag.has_attr("class")
+                and "actor" in tag.get("class", "").split(),
+                recursive=True,
+            )
+
+            for actor_text in actor_texts:
+                # テキスト要素自体の設定
+                actor_text["text-anchor"] = "start"
+
+                # テキスト要素内のtspanも処理
+                for tspan in actor_text.find_all("tspan", recursive=True):
+                    if actor_text.has_attr("x"):
+                        # 親グループ内のrectを探し、その位置を基準にする
+                        parent_g = actor_text.parent
+                        if parent_g.name == "g":
+                            rect = parent_g.find("rect", recursive=False)
+                            if rect.has_attr("x"):
+                                rect_x = float(rect["x"])
+                                # ボックスの左端 + 余白
+                                tspan["x"] = str(rect_x + 15)
+
         # Apply to HTML content within <foreignObject>
         for foreign_object in svg_tag.find_all("foreignObject", recursive=True):
             # Ensure foreignObject itself can be rendered (has dimensions)
@@ -113,14 +145,7 @@ class MermaidDiagram:
         images_dir_path = os.path.join(md_file_output_dir, images_subdir_name)
         os.makedirs(images_dir_path, exist_ok=True)
 
-        # filename_base_id = (
-        #     self.original_id
-        #     if self.original_id
-        #     else f"mermaid_diagram_{self.chat_block_index}_{self.diagram_index}"
-        # )
-        filename_base_id = (
-            f"mermaid_diagram_{self.chat_block_index}_{self.diagram_index}"
-        )
+        filename_base_id = f"{self.chat_block_index}__diagram_{self.diagram_index}"
         base_filename = self._sanitize_filename(filename_base_id)
         svg_filename = f"{base_filename}.svg"
         svg_filepath = os.path.join(images_dir_path, svg_filename)
@@ -257,3 +282,73 @@ class ChatLog:
             block.to_markdown(markdown_converter) for block in self.chat_blocks if block
         ]
         return "\n\n---\n\n".join(filter(None, markdown_docs))
+
+
+@dataclass
+class WikiPage:
+    """
+    Represents a single Wiki page with its content and metadata.
+    """
+
+    title: str
+    content: str
+    url: str
+    page_number: int  # ページ番号（出力ファイル名の接頭辞用）
+    diagrams: List[MermaidDiagram] = field(default_factory=list)
+
+    def _sanitize_filename(self, name: str) -> str:
+        """
+        ファイル名に使用できない文字を置換する。
+        """
+        sanitized = re.sub(r'[\\/*?:"<>|]', "", name.lower().replace(" ", "-"))
+        return sanitized[:100]  # 長すぎるファイル名を防止
+
+    def get_filename(self) -> str:
+        """
+        ページのMarkdownファイル名を生成する。
+        例: '1-langchain-overview.md'
+        """
+        return f"{self.page_number}-{self._sanitize_filename(self.title)}.md"
+
+
+@dataclass
+class WikiSite:
+    """
+    Represents a collection of Wiki pages and metadata about the site.
+    """
+
+    organization: str  # URLから抽出する組織名（例: langchain-ai）
+    repository: str  # URLから抽出するリポジトリ名（例: langchain）
+    pages: List[WikiPage] = field(default_factory=list)
+
+    def add_page(self, page: WikiPage) -> None:
+        """
+        WikiSiteにページを追加する。
+        """
+        self.pages.append(page)
+
+    def get_output_directory(self, base_dir: str) -> str:
+        """
+        出力ディレクトリパスを生成する。
+        例: 'base_dir/wiki/langchain-ai/langchain/'
+        """
+        return os.path.join(base_dir, "wiki", self.organization, self.repository)
+
+    @classmethod
+    def from_url(cls, url: str) -> "WikiSite":
+        """
+        URLからWikiSiteオブジェクトを作成する。
+        例: https://deepwiki.com/langchain-ai/langchain
+        """
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.strip("/").split("/")
+
+        if len(path_parts) < 2:
+            raise ValueError(
+                f"Invalid DeepWiki URL format: {url}. Expected format: https://deepwiki.com/organization/repository"
+            )
+
+        organization = path_parts[0]
+        repository = path_parts[1]
+
+        return cls(organization=organization, repository=repository)

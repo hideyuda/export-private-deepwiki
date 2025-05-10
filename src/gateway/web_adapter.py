@@ -32,9 +32,9 @@ class WebAdapter:
                 print(f"Navigating to {url}...")
                 await page.goto(url, wait_until="networkidle", timeout=60000)
                 print(
-                    "Page loaded. Waiting for potential dynamic content (e.g., 5 seconds)..."
+                    "Page loaded. Waiting for potential dynamic content (e.g., 1 second)..."
                 )
-                await page.wait_for_timeout(5000)
+                await page.wait_for_timeout(1000)
                 print("Retrieving page content...")
                 content = await page.content()
                 print("Content retrieved.")

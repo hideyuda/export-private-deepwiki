@@ -14,6 +14,8 @@ from src.domain.entities import (
     CodeReferenceCollection,
     ProcessedAnswer,
     MermaidDiagram,
+    WikiPage,
+    WikiSite,
 )
 from src.gateway.html_adapter import HtmlAdapter
 
@@ -195,5 +197,167 @@ class HtmlRepository:
         # Create and return ProcessedAnswer
         return ProcessedAnswer(
             html_content_with_placeholders=str(answer_area_copy),
+            placeholder_to_markdown_link_map=placeholder_map,
+        )
+
+    # ----- Wiki関連のメソッド -----
+
+    def extract_wiki_navigation(self, html_content: str) -> List[Dict[str, str]]:
+        """
+        Wikiサイトのナビゲーションリンク情報を抽出する。
+
+        Args:
+            html_content: Wikiページのhtml全体
+
+        Returns:
+            List[Dict[str, str]]: [{"title": "ページタイトル", "url": "ページURL"}, ...]
+        """
+        return self.html_adapter.extract_wiki_navigation(html_content)
+
+    def extract_wiki_page(
+        self, html_content: str, title: str, url: str, page_number: int, output_dir: str
+    ) -> WikiPage:
+        """
+        Wikiページの内容を解析してWikiPageエンティティを作成する。
+
+        Args:
+            html_content: Wikiページのhtml
+            title: ページタイトル
+            url: ページURL
+            page_number: ページ番号
+            output_dir: 出力ディレクトリ
+
+        Returns:
+            WikiPage: 作成されたWikiPageエンティティ
+        """
+        # コンテンツの抽出
+        content_html = self.html_adapter.extract_wiki_content(html_content)
+
+        # Mermaid図の抽出と処理
+        diagram_infos = self.html_adapter.extract_wiki_mermaid_diagrams(html_content)
+        diagrams = []
+
+        # コンテンツのコピーを作成（プレースホルダー置換のため）
+        content_copy = BeautifulSoup(content_html, "html.parser")
+
+        # 各Mermaid図を処理
+        for diagram_idx, diagram_info in enumerate(diagram_infos):
+            svg_tag = diagram_info["svg_tag"]
+            pre_tag = diagram_info["pre_tag"]
+
+            # MermaidDiagram作成（chat_block_indexの代わりにpage_numberを使用）
+            diagram = MermaidDiagram(
+                original_id=svg_tag.get("id", ""),
+                svg_content=svg_tag,
+                chat_block_index=page_number,  # ページ番号をチャットブロックインデックスとして使用
+                diagram_index=diagram_idx,
+            )
+
+            # 図をリストに追加
+            diagrams.append(diagram)
+
+            # SVGをプレースホルダーに置換（必要に応じて）
+            # HTML解析のままでは図が含まれない場合もあるので、コンテンツ解析方法によって調整
+
+        # WikiPage作成
+        return WikiPage(
+            title=title,
+            content=content_html,
+            url=url,
+            page_number=page_number,
+            diagrams=diagrams,
+        )
+
+    def process_wiki_page_content(
+        self, wiki_page: WikiPage, output_dir: str
+    ) -> ProcessedAnswer:
+        """
+        WikiページのコンテンツをMarkdown用に処理し、Mermaid図をファイルに保存する。
+
+        Args:
+            wiki_page: 処理対象のWikiPageエンティティ
+            output_dir: 出力ディレクトリ
+
+        Returns:
+            ProcessedAnswer: プレースホルダー付きのHTMLとプレースホルダーマップ
+        """
+        # コンテンツのコピーを作成
+        content_copy = BeautifulSoup(wiki_page.content, "html.parser")
+        placeholder_map = {}
+
+        # Mermaid図を再度抽出（pre_tagを取得するため）
+        diagram_infos = self.html_adapter.extract_wiki_mermaid_diagrams(
+            wiki_page.content
+        )
+
+        # 各Mermaid図を処理
+        for i, (diagram, diagram_info) in enumerate(
+            zip(wiki_page.diagrams, diagram_infos)
+        ):
+            # 図を保存し、相対パスを取得
+            relative_svg_path = diagram.prepare_and_save(output_dir)
+
+            # プレースホルダー作成
+            placeholder = self.html_adapter.create_placeholder(
+                diagram.chat_block_index, diagram.diagram_index
+            )
+
+            # プレースホルダーとMarkdownリンクのマッピングに追加
+            if relative_svg_path:
+                placeholder_map[placeholder] = (
+                    f"![Mermaid Diagram]({relative_svg_path})"
+                )
+            else:
+                placeholder_map[placeholder] = ""
+
+            # 重要: HTMLのMermaid図をプレースホルダーに置換
+            if "pre_tag" in diagram_info and "svg_tag" in diagram_info:
+                pre_tag = diagram_info["pre_tag"]
+                svg_tag = diagram_info["svg_tag"]
+                svg_id = svg_tag.get("id", "")
+
+                # Mermaidダイアグラムに特化したセレクタを使用してpreタグを探す
+                mermaid_selector = (
+                    f'pre:has(div[type="button"] > div > svg[id="{svg_id}"])'
+                )
+                matching_pre = content_copy.select(mermaid_selector)
+
+                if matching_pre:
+                    # 見つかったpreタグをプレースホルダーに置換
+                    self.html_adapter.replace_svg_with_placeholder(
+                        matching_pre[0], placeholder
+                    )
+                    print(
+                        f"Replaced diagram with id {svg_id} with placeholder: {placeholder}"
+                    )
+                else:
+                    # IDベースの検索に失敗した場合、位置ベースで試みる
+                    print(
+                        f"Could not find exact match for diagram {i} with id {svg_id}, trying position-based approach"
+                    )
+                    # Mermaidダイアグラムに特化したセレクタでpreタグを探す
+                    mermaid_pre_tags = content_copy.select(
+                        'pre:has(div[type="button"][aria-haspopup="dialog"] > div > svg[id^="mermaid-"])'
+                    )
+                    if i < len(mermaid_pre_tags):
+                        self.html_adapter.replace_svg_with_placeholder(
+                            mermaid_pre_tags[i], placeholder
+                        )
+                        print(
+                            f"Replaced diagram at position {i} with placeholder: {placeholder}"
+                        )
+                    else:
+                        print(
+                            f"Warning: Could not find appropriate pre tag for diagram {i}"
+                        )
+
+        # コンテンツのクリーンアップ
+        if isinstance(content_copy, BeautifulSoup):
+            self.html_adapter.unwrap_nested_pre_tags(content_copy)
+            self.html_adapter.remove_empty_pre_tags(content_copy)
+
+        # プレースホルダー付きHTMLとプレースホルダーマップを返す
+        return ProcessedAnswer(
+            html_content_with_placeholders=str(content_copy),
             placeholder_to_markdown_link_map=placeholder_map,
         )

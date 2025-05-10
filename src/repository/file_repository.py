@@ -82,3 +82,18 @@ class FileRepository:
         dir_path = os.path.dirname(os.path.abspath(filepath))
         self.create_directory(dir_path)
         return dir_path
+
+    def ensure_directory(self, dir_path: str) -> str:
+        """
+        Ensures that the specified directory exists.
+        Creates it if it doesn't exist.
+
+        Args:
+            dir_path: The path to the directory.
+
+        Returns:
+            The directory path.
+        """
+        abs_path = os.path.abspath(dir_path)
+        self.create_directory(abs_path)
+        return abs_path
