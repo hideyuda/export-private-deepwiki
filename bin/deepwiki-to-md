@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# --- ユーザーが変更可能な設定 ---
+DOCKER_IMAGE="suwash/deepwiki-to-md:latest"
+
+# --- スクリプト自身の場所と出力ルートを決定 ---
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOST_OUTPUT_ROOT_DIR="${SCRIPT_DIR}"
+
+# --- 引数チェック ---
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $(basename "$0") <repo|chat> <URL>"
+  exit 1
+fi
+SUB_COMMAND="${1:?}"
+TARGET_URL="${2:?}"
+
+# --- Dockerコマンド実行 ---
+docker run --rm \
+  -v "${HOST_OUTPUT_ROOT_DIR}:/app/output" \
+  "${DOCKER_IMAGE}" \
+  "${SUB_COMMAND}" "${TARGET_URL}" "/app/output"
