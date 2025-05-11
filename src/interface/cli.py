@@ -34,7 +34,12 @@ def parse_arguments():
     # chatコマンド - チャットページをMarkdownに変換
     chat_parser = subparsers.add_parser("chat", help="Convert chat page to Markdown")
     chat_parser.add_argument("url", help="URL of the chat page")
-    chat_parser.add_argument("output", help="Output file path")
+    chat_parser.add_argument(
+        "-o",
+        "--output",
+        help="Output directory path (default: current directory)",
+        default=os.getcwd(),
+    )
 
     # wikiコマンド - WikiサイトをMarkdownに変換
     wiki_parser = subparsers.add_parser("wiki", help="Convert wiki site to Markdown")
@@ -54,7 +59,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-async def execute_chat_command(url: str, output_file: str):
+async def execute_chat_command(url: str, output_dir: str):
     """chatコマンドを実行する"""
     # Initialize adapters
     web_adapter = WebAdapter()
@@ -77,7 +82,7 @@ async def execute_chat_command(url: str, output_file: str):
     )
 
     # Execute the usecase
-    await usecase.execute(url, output_file)
+    await usecase.execute(url, output_dir)
 
 
 async def execute_wiki_command(url: str, output_dir: str):

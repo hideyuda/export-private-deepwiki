@@ -39,23 +39,32 @@ class ConvertChatPageToMarkdownUsecase:
         self.markdown_repository = markdown_repository
         self.file_repository = file_repository
 
-    async def execute(self, url: str, output_md_filepath: str) -> None:
+    async def execute(self, url: str, output_base_dir: str) -> None:
         """
-        Executes the usecase to convert a chat page to markdown.
+        チャットページをMarkdownに変換する。
 
         Args:
-            url: The URL of the chat page.
-            output_md_filepath: The path to save the markdown file.
+            url: DeepWiki ChatページのURL (例: https://deepwiki.com/search/chat_id)
+            output_base_dir: 出力ディレクトリのベースパス
         """
         print("Starting the HTML to Markdown conversion process...")
         print(f"Target URL: {url}")
-        print(f"Output Markdown File: {output_md_filepath}")
+        print(f"Output Base Directory: {output_base_dir}")
 
-        # Ensure output directory exists
-        output_md_dir = self.file_repository.ensure_output_directory(output_md_filepath)
-        print(
-            f"SVG files will be saved in an 'images' subdirectory within: {output_md_dir}"
-        )
+        # URLからチャットIDを抽出
+        chat_id = self._extract_chat_id_from_url(url)
+
+        # 出力ディレクトリ構造を作成
+        output_dir = os.path.join(output_base_dir, "chat", chat_id)
+        images_dir = os.path.join(output_dir, "images")
+        self.file_repository.ensure_directory(output_dir)
+        self.file_repository.ensure_directory(images_dir)
+
+        # 出力ファイルパスの設定
+        output_md_filepath = os.path.join(output_dir, "chat.md")
+
+        print(f"Output Markdown File: {output_md_filepath}")
+        print(f"SVG files will be saved in: {images_dir}")
 
         # Fetch page content
         page_html = await self.web_repository.fetch_content(url)
@@ -66,7 +75,7 @@ class ConvertChatPageToMarkdownUsecase:
         print("Page content retrieved, parsing HTML...")
 
         # Extract chat blocks
-        chat_blocks = self.html_repository.extract_chat_blocks(page_html, output_md_dir)
+        chat_blocks = self.html_repository.extract_chat_blocks(page_html, output_dir)
 
         if not chat_blocks:
             print("No chat blocks found. Exiting.")
@@ -90,3 +99,42 @@ class ConvertChatPageToMarkdownUsecase:
 
         # Save markdown to file
         self.file_repository.save_markdown(final_markdown, output_md_filepath)
+
+        print(f"Successfully converted chat from {url}")
+        print(f"Output directory: {output_dir}")
+
+    def _extract_chat_id_from_url(self, url: str) -> str:
+        """
+        URLからチャットIDを抽出する。
+
+        Args:
+            url: チャットページのURL
+
+        Returns:
+            str: 抽出されたチャットID、または抽出できない場合はデフォルト値
+        """
+        import re
+        import urllib.parse
+
+        # URLをパース
+        parsed_url = urllib.parse.urlparse(url)
+
+        # パスからIDを抽出（例: /search/chat_xyz → chat_xyz）
+        path_parts = parsed_url.path.strip("/").split("/")
+        if len(path_parts) >= 2 and path_parts[0] == "search":
+            return path_parts[1]
+
+        # クエリパラメータからIDを抽出（例: ?id=chat_xyz）
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        if "id" in query_params and query_params["id"]:
+            return query_params["id"][0]
+
+        # 正規表現でURLから何かしらのIDを抽出
+        match = re.search(r"([a-zA-Z0-9_-]{4,})(?:[/?#]|$)", url)
+        if match:
+            return match.group(1)
+
+        # 最後の手段：URLのハッシュ値を使用
+        import hashlib
+
+        return hashlib.md5(url.encode()).hexdigest()[:12]

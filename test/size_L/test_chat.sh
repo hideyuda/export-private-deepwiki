@@ -18,7 +18,8 @@ readonly base_dir_expect="test/size_L/expect"
 target="search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d"
 
 url="${base_url}/${target}"
-dir_output="${base_dir_actual}/${target}"
+dir_output="${base_dir_actual}"
+chat_id=$(basename ${target})
 
 # clear
 rm -fr "${dir_output}"
@@ -30,20 +31,20 @@ rm -fr "${dir_output}"
 export PYTHONPATH=.
 python src/interface/cli.py chat \
   "${url}" \
-  "${dir_output}/readme.md"
+  -o "${dir_output}"
 
 
 # ----------------------------------------------------------------------
 # then
 # ----------------------------------------------------------------------
 # ------------------------------
-# readme.md
+# md
 # ------------------------------
 diff -u \
-  ${base_dir_actual}/${target}/readme.md \
-  ${base_dir_expect}/${target}/readme.md
+  ${base_dir_actual}/chat/${chat_id}/chat.md \
+  ${base_dir_expect}/chat/${chat_id}/chat.md
 if [ $? -ne 0 ]; then
-  echo "readme.md is different" >&2
+  echo "md file is different" >&2
   exit 1
 fi
 
@@ -63,9 +64,9 @@ normalize_svg() {
       "$1"
 }
 
-for svg_file in ${base_dir_actual}/${target}/images/*.svg; do
+for svg_file in ${base_dir_actual}/chat/${chat_id}/images/*.svg; do
   base_name=$(basename "$svg_file")
-  expect_svg="${base_dir_expect}/${target}/images/${base_name}"
+  expect_svg="${base_dir_expect}/chat/${chat_id}/images/${base_name}"
   
   if [ ! -f "$expect_svg" ]; then
     echo "Expected SVG file not found: $expect_svg" >&2
