@@ -9,8 +9,8 @@
 
 ### 1.1. 目的
 
-1.  DeepWikiのチャットログをMarkdown形式で取得できるようにしします。
-2.  DeepWikiのWikiコンテンツをMarkdown形式で取得できるようにしします。
+1.  DeepWikiのチャットログをMarkdown形式で取得できるようにします。
+2.  DeepWikiのWikiコンテンツをMarkdown形式で取得できるようにします。
 3.  Mermaidの図も適切に変換・保存して再利用できるようにします。
 
 ## 2. Getting Started
