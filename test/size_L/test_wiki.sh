@@ -16,6 +16,7 @@ readonly base_dir_expect="test/size_L/expect"
 # ----------------------------------------------------------------------
 # given
 # ----------------------------------------------------------------------
+# URL: https://deepwiki.com/langchain-ai/langchain
 target="langchain-ai/langchain"
 
 url="${base_url}/${target}"

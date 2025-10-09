@@ -15,6 +15,7 @@ readonly base_dir_expect="test/size_L/expect"
 # ----------------------------------------------------------------------
 # given
 # ----------------------------------------------------------------------
+# URL: https://deepwiki.com/search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d
 target="search/c4_a06e7db5-c0b8-4899-a80a-84cf8f36347d"
 
 url="${base_url}/${target}"
