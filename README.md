@@ -2,8 +2,6 @@
 
 ## 1. 概要
 
-このプロジェクトは[deepwiki-to-md](https://github.com/suwa-sh/deepwiki-to-md)を参考に、export-private-repositoryとして変更したものです。
-
 `export-private-deepwiki`は、DeepWikiのコンテンツ（リポジトリのWikiやチャットログ）をMarkdown形式でローカルに保存するためのCLIツールです。
 このプロジェクトにより、ユーザーはDeepWiki上の情報を簡単にエクスポートし、ローカル環境で管理・活用できます。
 
@@ -144,3 +142,7 @@ output/  ※デフォルトの出力ディレクトリ
             images/
                 diagram1.svg
 ```
+
+## 3. 参考
+
+このプロジェクトは[deepwiki-to-md](https://github.com/suwa-sh/deepwiki-to-md)を参考に、export-private-repositoryとして変更したものです。
