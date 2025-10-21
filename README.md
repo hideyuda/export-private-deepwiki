@@ -44,7 +44,7 @@
 
 ```
 python -m src.interface.cli wiki \
-    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    "https://app.devin.ai/wiki/<your org>/<your repo>" \
     -o ./output \
     --auth \
     --headed \
@@ -61,7 +61,7 @@ python -m src.interface.cli wiki \
 
 ```
 python -m src.interface.cli wiki \
-    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    "https://app.devin.ai/wiki/<your org>/<your repo>" \
     -o ./output \
     --auth \
     --browser-channel chrome \
@@ -72,7 +72,7 @@ macOSの既存Chromeプロファイルを使う場合（上級者向け）
 
 ```
 python -m src.interface.cli wiki \
-    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    "https://app.devin.ai/wiki/<your org>/<your repo>" \
     -o ./output \
     --auth \
     --browser-channel chrome \
