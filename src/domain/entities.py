@@ -338,10 +338,15 @@ class WikiSite:
     def from_url(cls, url: str) -> "WikiSite":
         """
         URLからWikiSiteオブジェクトを作成する。
-        例: https://deepwiki.com/langchain-ai/langchain
+        例: https://deepwiki.com/langchain-ai/langchain または
+            https://app.devin.ai/wiki/langchain-ai/langchain
         """
         parsed_url = urlparse(url)
         path_parts = parsed_url.path.strip("/").split("/")
+
+        # Devin形式では `/wiki/{org}/{repo}` になっている場合があるため先頭が"wiki"ならスキップ
+        if path_parts and path_parts[0] == "wiki":
+            path_parts = path_parts[1:]
 
         if len(path_parts) < 2:
             raise ValueError(

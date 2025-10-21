@@ -72,7 +72,9 @@ class ConvertWikiSiteToMarkdownUsecase:
             return
 
         # 4. ナビゲーションメニューからすべてのページリンクを抽出
-        navigation_links = self.html_repository.extract_wiki_navigation(main_page_html)
+        navigation_links = self.html_repository.extract_wiki_navigation(
+            main_page_html, base_url=url
+        )
         if not navigation_links:
             print("No navigation links found. Exiting.")
             return

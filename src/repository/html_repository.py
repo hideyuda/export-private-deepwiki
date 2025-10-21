@@ -202,17 +202,20 @@ class HtmlRepository:
 
     # ----- Wiki関連のメソッド -----
 
-    def extract_wiki_navigation(self, html_content: str) -> List[Dict[str, str]]:
+    def extract_wiki_navigation(
+        self, html_content: str, base_url: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         """
         Wikiサイトのナビゲーションリンク情報を抽出する。
 
         Args:
             html_content: Wikiページのhtml全体
+            base_url: 解析対象のベースURL（相対リンクの解決やDevin形式の補助）
 
         Returns:
             List[Dict[str, str]]: [{"title": "ページタイトル", "url": "ページURL"}, ...]
         """
-        return self.html_adapter.extract_wiki_navigation(html_content)
+        return self.html_adapter.extract_wiki_navigation(html_content, base_url)
 
     def extract_wiki_page(
         self, html_content: str, title: str, url: str, page_number: int, output_dir: str

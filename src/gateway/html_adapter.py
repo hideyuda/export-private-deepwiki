@@ -221,12 +221,15 @@ class HtmlAdapter:
 
     # ----- Wiki関連のメソッド -----
 
-    def extract_wiki_navigation(self, html_content: str) -> List[Dict[str, str]]:
+    def extract_wiki_navigation(
+        self, html_content: str, base_url: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         """
         Wikiページのナビゲーションメニューからすべてのページリンクを抽出する。
 
         Args:
             html_content: Wikiページ全体のHTML
+            base_url: 当該WikiサイトのURL（Devin形式の判定や相対→絶対化に使用）
 
         Returns:
             List[Dict[str, str]]: [{"title": "ページタイトル", "url": "ページURL"}, ...]
@@ -260,9 +263,57 @@ class HtmlAdapter:
             if navigation_links:
                 print(f"Found {len(navigation_links)} navigation links")
         else:
-            print(
-                "Navigation container not found. Check if the page structure has changed."
-            )
+            # Devinなど別UIのためのフォールバック: aタグから /wiki/{org}/{repo}/... を抽出
+            org = repo = None
+            base_origin = None
+            if base_url:
+                from urllib.parse import urlparse
+
+                pu = urlparse(base_url)
+                base_origin = f"{pu.scheme}://{pu.netloc}"
+                parts = pu.path.strip("/").split("/")
+                if parts and parts[0] == "wiki":
+                    parts = parts[1:]
+                if len(parts) >= 2:
+                    org, repo = parts[0], parts[1]
+
+            candidate_anchors = soup.find_all("a", href=True)
+            seen = set()
+            for a in candidate_anchors:
+                raw_href = a["href"].strip()
+                title = a.get_text(strip=True)
+                if not raw_href or not title:
+                    continue
+                abs_href = raw_href
+                if base_origin and not raw_href.startswith("http"):
+                    abs_href = urljoin(base_origin + "/", raw_href)
+
+                try:
+                    from urllib.parse import urlparse
+
+                    pu2 = urlparse(abs_href)
+                    path_parts = pu2.path.strip("/").split("/")
+                    if path_parts and path_parts[0] == "wiki":
+                        path_parts = path_parts[1:]
+                    ok = False
+                    if org and repo and len(path_parts) >= 3:
+                        if path_parts[0] == org and path_parts[1] == repo:
+                            ok = True
+                    if ok and abs_href not in seen:
+                        navigation_links.append({"title": title, "url": abs_href})
+                        seen.add(abs_href)
+                except Exception:
+                    # URL解析に失敗したリンクはスキップ
+                    continue
+
+            if navigation_links:
+                print(
+                    f"Found {len(navigation_links)} navigation links via fallback extraction",
+                )
+            else:
+                print(
+                    "Navigation container not found. Check if the page structure has changed.",
+                )
 
         return navigation_links
 
