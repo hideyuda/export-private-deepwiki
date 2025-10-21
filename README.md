@@ -13,6 +13,91 @@
 2.  DeepWikiのWikiコンテンツをMarkdown形式で取得できるようにします。
 3.  Mermaidの図も適切に変換・保存して再利用できるようにします。
 
+## Private DeepWiki（Devin上の非公開Wiki）への対応
+
+これまで公開（public）のDeepWikiのみを対象としていましたが、ログインが必要な非公開ページについても、Playwrightの永続コンテキスト（persistent context）を使用して同様に取得できるモードを追加しました。
+
+ポイント
+- 既存のリクエストベースではなく、実ブラウザ（Chromium/Chrome）を起動して、ログイン済みセッション（Cookie/LocalStorage）を使ってページにアクセスします。
+- 初回はヘッド付き（--headed）でブラウザを表示し、ログインを完了してください。以降は同じユーザーデータディレクトリ（--user-data-dir）を指定すれば、ログイン状態が維持されます。
+- macOSの既存Chromeプロファイルを直接使うこともできますが、同時起動やプロファイル破損のリスクがあるため、専用ディレクトリを作成して使うことを推奨します。
+
+注意（Dockerについて）
+- 非公開ページの取得では、ホストのログイン済みブラウザ環境を使う必要があるため、Dockerイメージ経由ではなく「ローカル実行（Python）」での利用を推奨します（コンテナ内でChromeを起動してホストのプロファイルを共有するのは非推奨/非対応）。
+
+### 使い方（ローカル実行）
+
+前提
+- macOS
+- Python 3.12+
+- Playwright パッケージ（当プロジェクトの依存に含まれます）
+
+セットアップ例
+1) 依存をインストール
+
+     （任意の環境で）
+     - pip等でインストールしてください。
+
+2) Playwrightのブラウザは、システムChromeを使うため必須ではありませんが、Chromiumを使う場合は `playwright install` が必要です。
+
+サンプル（Devin上の非公開Wiki）
+
+以下のように、--auth オプションで認証モードを有効化します。初回は --headed を付けてログインを完了してください。
+
+```
+python -m src.interface.cli wiki \
+    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    -o ./output \
+    --auth \
+    --headed \
+    --browser-channel chrome \
+    --user-data-dir "$HOME/.deepwiki-playwright-profile"
+```
+
+- --auth: 永続コンテキストを使用してログイン状態を維持
+- --headed: ブラウザを表示（初回ログイン時に便利）
+- --browser-channel chrome: システムのGoogle Chromeを使用
+- --user-data-dir: ログイン状態を保存するディレクトリ（任意の新規ディレクトリ推奨）
+
+ログイン完了後は --headed を外して自動実行できます。
+
+```
+python -m src.interface.cli wiki \
+    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    -o ./output \
+    --auth \
+    --browser-channel chrome \
+    --user-data-dir "$HOME/.deepwiki-playwright-profile"
+```
+
+macOSの既存Chromeプロファイルを使う場合（上級者向け）
+
+```
+python -m src.interface.cli wiki \
+    "https://app.devin.ai/wiki/sakuraaiinc/scoutbird-temp" \
+    -o ./output \
+    --auth \
+    --browser-channel chrome \
+    --user-data-dir "$HOME/Library/Application Support/Google/Chrome"
+```
+
+注: 既存のChromeを同じプロファイルで同時起動すると競合や破損のリスクがあります。使用中のChromeを終了してから実行するか、専用のプロファイルディレクトリを使ってください。
+
+### chatにも同様に適用可能
+
+```
+python -m src.interface.cli chat \
+    "<チャットページURL>" \
+    -o ./output \
+    --auth \
+    --browser-channel chrome \
+    --user-data-dir "$HOME/.deepwiki-playwright-profile"
+```
+
+### 既知の制限と今後の改善
+- Wiki本文内の画像が認証下にありローカルに保存されない場合、Markdownでは外部URLのまま参照されます。将来的に、Playwrightのページコンテキストを用いた画像のダウンロードとローカル参照への書き換えを追加予定です。
+- Devin上のDOM構造が変更された場合、セレクタの調整が必要になる可能性があります。
+
 ## 2. Getting Started
 
 ### 2.1. インストール

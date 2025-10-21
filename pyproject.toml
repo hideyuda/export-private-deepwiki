@@ -1,9 +1,9 @@
 [project]
-name = "deepwiki-to-md"
+name = "export-private-deepwiki"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
-    { name = "Shinichi Suwa", email = "suwash01@gmail.com" }
+    { name = "hideyuda", email = "yuda@sakuraai.co" }
 ]
 dependencies = [
     "playwright>=1.52.0",
