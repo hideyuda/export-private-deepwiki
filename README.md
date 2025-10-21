@@ -1,6 +1,4 @@
-# deepwiki-to-md
-
-![](docs/images/hero.png)
+# export-private-deepwiki
 
 ## 1. 概要
 
