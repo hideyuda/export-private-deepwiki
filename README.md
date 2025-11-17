@@ -1,5 +1,7 @@
 # export-private-deepwiki
 
+**🚧This repository is under maintenance.**
+
 > **Languages / 言語:** [English](README.md) | [日本語](docs/README_ja.md)
 
 ## 1. Overview
